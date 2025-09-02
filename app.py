@@ -137,25 +137,25 @@ def process_files(erp_df: pd.DataFrame, lw_df: pd.DataFrame) -> pd.DataFrame:
 # ------------------------------------------------------
 # Auth (με deep-copy των secrets για αποφυγή TypeError)
 # ------------------------------------------------------
-#try:
-#    cfg = to_dict(st.secrets)  # st.secrets -> mutable dict
-#    credentials_cfg = cfg["credentials"]
-#   cookie_cfg = cfg["cookie"]
-#except Exception as e:
-#    st.error(
-#        "❌ Δεν βρέθηκαν/δεν διαβάστηκαν σωστά τα Secrets.\n\n"
-#        "Βεβαιώσου ότι υπάρχει το `.streamlit/secrets.toml` με αυτό το σχήμα:\n\n"
-#        "[credentials]\n"
-#        "  [credentials.usernames.alice]\n"
-#        '  name = "Alice"\n'
-#        '  email = "alice@example.com"\n'
-#        '  password = "$2b$12$...hash..."\n\n'
-#        "[cookie]\n"
-#        'name = "order-validator-auth"\n'
-#        'key = "τυχαίο_μακρύ_μυστικό"\n'
-#        "expiry_days = 30\n"
-#    )
-#    st.stop()
+try:
+    cfg = to_dict(st.secrets)  # st.secrets -> mutable dict
+    credentials_cfg = cfg["credentials"]
+   cookie_cfg = cfg["cookie"]
+except Exception as e:
+    st.error(
+        "❌ Δεν βρέθηκαν/δεν διαβάστηκαν σωστά τα Secrets.\n\n"
+        "Βεβαιώσου ότι υπάρχει το `.streamlit/secrets.toml` με αυτό το σχήμα:\n\n"
+        "[credentials]\n"
+        "  [credentials.usernames.alice]\n"
+        '  name = "Alice"\n'
+        '  email = "alice@example.com"\n'
+        '  password = "$2b$12$...hash..."\n\n'
+        "[cookie]\n"
+        'name = "order-validator-auth"\n'
+        'key = "τυχαίο_μακρύ_μυστικό"\n'
+        "expiry_days = 30\n"
+    )
+    st.stop()
 
 authenticator = stauth.Authenticate(
     credentials_cfg,                 # mutable dict πλέον
@@ -209,4 +209,5 @@ if st.button("Process", type="primary", disabled=not (erp_file and linkwise_file
         st.subheader("Preview")
         st.dataframe(result_df.head(20))
     except Exception as e:
+
         st.error(f"Σφάλμα: {e}")
