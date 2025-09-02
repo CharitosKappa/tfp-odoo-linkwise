@@ -137,44 +137,44 @@ def process_files(erp_df: pd.DataFrame, lw_df: pd.DataFrame) -> pd.DataFrame:
 # ------------------------------------------------------
 # Auth (με deep-copy των secrets για αποφυγή TypeError)
 # ------------------------------------------------------
-try:
-    cfg = to_dict(st.secrets)  # st.secrets -> mutable dict
-    credentials_cfg = cfg["credentials"]
-    cookie_cfg = cfg["cookie"]
-except Exception as e:
-    st.error(
-        "❌ Δεν βρέθηκαν/δεν διαβάστηκαν σωστά τα Secrets.\n\n"
-        "Βεβαιώσου ότι υπάρχει το `.streamlit/secrets.toml` με αυτό το σχήμα:\n\n"
-        "[credentials]\n"
-        "  [credentials.usernames.alice]\n"
-        '  name = "Alice"\n'
-        '  email = "alice@example.com"\n'
-        '  password = "$2b$12$...hash..."\n\n'
-        "[cookie]\n"
-        'name = "order-validator-auth"\n'
-        'key = "τυχαίο_μακρύ_μυστικό"\n'
-        "expiry_days = 30\n"
-    )
-    st.stop()
+# try:
+#     cfg = to_dict(st.secrets)  # st.secrets -> mutable dict
+#     credentials_cfg = cfg["credentials"]
+#     cookie_cfg = cfg["cookie"]
+# except Exception as e:
+#     st.error(
+#         "❌ Δεν βρέθηκαν/δεν διαβάστηκαν σωστά τα Secrets.\n\n"
+#         "Βεβαιώσου ότι υπάρχει το `.streamlit/secrets.toml` με αυτό το σχήμα:\n\n"
+#         "[credentials]\n"
+#         "  [credentials.usernames.alice]\n"
+#         '  name = "Alice"\n'
+#         '  email = "alice@example.com"\n'
+#         '  password = "$2b$12$...hash..."\n\n'
+#         "[cookie]\n"
+#         'name = "order-validator-auth"\n'
+#         'key = "τυχαίο_μακρύ_μυστικό"\n'
+#         "expiry_days = 30\n"
+#     )
+#     st.stop()
 
-authenticator = stauth.Authenticate(
-    credentials_cfg,                 # mutable dict πλέον
-    cookie_cfg["name"],
-    cookie_cfg["key"],
-    cookie_cfg.get("expiry_days", 30),
-)
+# authenticator = stauth.Authenticate(
+#     credentials_cfg,                 # mutable dict πλέον
+#     cookie_cfg["name"],
+#     cookie_cfg["key"],
+#     cookie_cfg.get("expiry_days", 30),
+# )
 
-authenticator.login("main")
+# authenticator.login("main")
 
-if st.session_state.get("authentication_status") is True:
-    authenticator.logout("Logout", "sidebar")
-    st.sidebar.success(f"Logged in: {st.session_state.get('name', '')}")
-elif st.session_state.get("authentication_status") is False:
-    st.error("❌ Λάθος username ή password.")
-    st.stop()
-else:
-    st.info("🔐 Παρακαλώ κάνε login.")
-    st.stop()
+# if st.session_state.get("authentication_status") is True:
+#     authenticator.logout("Logout", "sidebar")
+#     st.sidebar.success(f"Logged in: {st.session_state.get('name', '')}")
+# elif st.session_state.get("authentication_status") is False:
+#     st.error("❌ Λάθος username ή password.")
+#     st.stop()
+# else:
+#     st.info("🔐 Παρακαλώ κάνε login.")
+#     st.stop()
 
 
 # ------------------------------------------------------
@@ -211,4 +211,5 @@ if st.button("Process", type="primary", disabled=not (erp_file and linkwise_file
     except Exception as e:
 
         st.error(f"Σφάλμα: {e}")
+
 
