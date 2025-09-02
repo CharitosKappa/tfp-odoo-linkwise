@@ -140,7 +140,7 @@ def process_files(erp_df: pd.DataFrame, lw_df: pd.DataFrame) -> pd.DataFrame:
 try:
     cfg = to_dict(st.secrets)  # st.secrets -> mutable dict
     credentials_cfg = cfg["credentials"]
-   cookie_cfg = cfg["cookie"]
+    cookie_cfg = cfg["cookie"]
 except Exception as e:
     st.error(
         "❌ Δεν βρέθηκαν/δεν διαβάστηκαν σωστά τα Secrets.\n\n"
@@ -211,3 +211,4 @@ if st.button("Process", type="primary", disabled=not (erp_file and linkwise_file
     except Exception as e:
 
         st.error(f"Σφάλμα: {e}")
+
