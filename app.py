@@ -183,8 +183,8 @@ def process_files(erp_df: pd.DataFrame, lw_df: pd.DataFrame) -> pd.DataFrame:
 st.title("Linkwise (Pending Sales) — Status από ERP")
 st.markdown("Ανέβασε τα 2 αρχεία Excel και πάτα **Process** για να κατεβάσεις το αποτέλεσμα.")
 
-erp_file = st.file_uploader("ERP (Sales Order).xlsx", type=["xlsx"])
-linkwise_file = st.file_uploader("Linkwise (Pending Sales).xlsx", type=["xlsx"])
+erp_file = st.file_uploader("Εδώ ανεβάζεις το report από το Odoo", type=["xlsx"])
+linkwise_file = st.file_uploader("Εδώ ανεβάζεις το αρχείο από την Linkwise", type=["xlsx"])
 
 if st.button("Process", type="primary", disabled=not (erp_file and linkwise_file)):
     try:
@@ -211,5 +211,6 @@ if st.button("Process", type="primary", disabled=not (erp_file and linkwise_file
     except Exception as e:
 
         st.error(f"Σφάλμα: {e}")
+
 
 
