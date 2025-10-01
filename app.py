@@ -26,7 +26,9 @@ def map_courier_state_to_status(state):
 
 def process_linkwise_vs_erp(linkwise_df, erp_df):
     fill_cols = ["Shopify Order Id", "Customer", "Handling Status", "Status"]
-    erp_df[fill_cols] = erp_df[fill_cols].ffill()
+    for col in fill_cols:
+        if col in erp_df.columns:
+            erp_df[col] = erp_df[col].ffill()
 
     if "Courier State" in erp_df.columns:
         erp_df["Courier State Friendly"] = erp_df["Courier State"].apply(extract_courier_state)
@@ -35,6 +37,7 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
 
     erp_df["Shopify Order Id"] = erp_df["Shopify Order Id"].astype(str)
     linkwise_df["Advertiser Id"] = linkwise_df["Advertiser Id"].astype(str)
+
     merged_df = pd.merge(
         linkwise_df,
         erp_df,
@@ -47,9 +50,9 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
     statuses = []
 
     for _, row in merged_df.iterrows():
-        handling_status = str(row["Handling Status"]).lower()
-        order_status = str(row["Status_erp"]).lower()
-        customer = str(row["Customer"])
+        handling_status = str(row.get("Handling Status", "")).lower()
+        order_status = str(row.get("Status", "")).lower()
+        customer = str(row.get("Customer", ""))
         courier_state = row.get("Courier State Friendly", "").strip()
 
         if order_status in {"canceled", "cancelled", "undelivered", "undeliverd"}:
@@ -70,7 +73,7 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
             statuses.append("pending")
             continue
 
-        order_id = row["Shopify Order Id"]
+        order_id = row.get("Shopify Order Id", "")
         erp_lines = erp_df[erp_df["Shopify Order Id"] == order_id]
         erp_lines = erp_lines[~erp_lines["Order Lines/Product/Name"].str.contains("Courier", case=False, na=False)]
 
