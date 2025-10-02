@@ -54,7 +54,7 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
         handling_status = str(row.get("Handling Status", "")).lower()
         order_status = str(row.get("Status", "")).lower()
         customer = str(row.get("Customer", ""))
-        courier_state = row.get("Courier State Friendly", "").strip()
+        courier_state = str(row.get("Courier State Friendly", "")).strip()
 
         if order_status in {"canceled", "cancelled", "undelivered", "undeliverd"}:
             statuses.append("cancel")
