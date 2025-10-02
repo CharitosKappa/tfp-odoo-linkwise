@@ -81,13 +81,12 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
         line_values = []
         for _, line in erp_lines.iterrows():
             delivered_qty = line["Order Lines/Delivery Quantity"]
-            unit_price = line["Order Lines/Product/Price Unit"]
-            untaxed_amount = line["Order Lines/Product/Untaxed Invoiced Amount"]
+                        untaxed_amount = line["Order Lines/Product/Untaxed Invoiced Amount"]
 
             if delivered_qty == delivered_qty:
                 value = untaxed_amount
             else:
-                value = unit_price * delivered_qty
+                value = untaxed_amount
             line_values.append(value)
 
         erp_total = sum(line_values)
