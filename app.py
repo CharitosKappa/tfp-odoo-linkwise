@@ -80,7 +80,7 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
 
         line_values = []
         for _, line in erp_lines.iterrows():
-            untaxed_amount = line["Order Lines/Product/Untaxed Invoiced Amount"]
+            untaxed_amount = line["Order Lines/Untaxed Invoiced Amount"]
             line_values.append(untaxed_amount)
 
         erp_total = sum(line_values)
