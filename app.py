@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -79,15 +80,14 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
 
         line_values = []
         for _, line in erp_lines.iterrows():
-            qty = line["Order Lines/Product/Quantity"]
-            delivered = line["Order Lines/Product/Delivered"]
+            delivered_qty = line["Order Lines/Delivery Quantity"]
             unit_price = line["Order Lines/Product/Price Unit"]
             untaxed_amount = line["Order Lines/Product/Untaxed Invoiced Amount"]
 
-            if qty == delivered:
+            if delivered_qty == delivered_qty:
                 value = untaxed_amount
             else:
-                value = unit_price * delivered
+                value = unit_price * delivered_qty
             line_values.append(value)
 
         erp_total = sum(line_values)
