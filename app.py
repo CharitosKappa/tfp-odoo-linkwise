@@ -80,16 +80,11 @@ def process_linkwise_vs_erp(linkwise_df, erp_df):
 
         line_values = []
         for _, line in erp_lines.iterrows():
-            delivered_qty = line["Order Lines/Delivery Quantity"]
-                            untaxed_amount = line["Order Lines/Product/Untaxed Invoiced Amount"]
-
-            if delivered_qty == delivered_qty:
-                value = untaxed_amount
-            else:
-                value = untaxed_amount
-            line_values.append(value)
+            untaxed_amount = line["Order Lines/Product/Untaxed Invoiced Amount"]
+            line_values.append(untaxed_amount)
 
         erp_total = sum(line_values)
+        linkwise_amount = row["Amount"]
         linkwise_amount = row["Amount"]
 
         if abs(erp_total - linkwise_amount) <= 0.01:
