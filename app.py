@@ -19,12 +19,19 @@ if erp_file and linkwise_file:
         erp_df = pd.read_excel(erp_file)
         linkwise_df = pd.read_excel(linkwise_file)
 
-        # Fill down για Shopify Order Id, Customer, Handling Status, Status
-        erp_df[["Shopify Order Id", "Customer", "Handling Status", "Status"]] = erp_df[
-            ["Shopify Order Id", "Customer", "Handling Status", "Status"]
+        # Προεπεξεργασία ID (αφαίρεση .0)
+        def clean_id(val):
+            return str(val).strip().replace(".0", "")
+
+        erp_df["Shopify Order Id"] = erp_df["Shopify Order Id"].ffill().apply(clean_id)
+        linkwise_df["Advertiser Id"] = linkwise_df["Advertiser Id"].astype(str).apply(clean_id)
+
+        # Fill-down για Customer, Handling Status, Status
+        erp_df[["Customer", "Handling Status", "Status"]] = erp_df[
+            ["Customer", "Handling Status", "Status"]
         ].ffill()
 
-        # Μετονομασία Courier State Friendly (απο parsing JSON)
+        # Εξαγωγή state_friendly από Courier State
         def extract_friendly_state(row):
             try:
                 raw = row.get("Courier State")
@@ -39,32 +46,27 @@ if erp_file and linkwise_file:
 
         statuses = []
         for _, row in linkwise_df.iterrows():
-            order_id = str(row["Advertiser Id"])
+            order_id = row["Advertiser Id"]
             amount = row["Amount"]
 
             erp_lines = erp_df[erp_df["Shopify Order Id"] == order_id]
 
-            # Αν δεν υπάρχει αντιστοιχία
             if erp_lines.empty:
-                statuses.append("unmatched")
+                statuses.append("pending")
                 continue
 
-            # Rule 1: ERP.Status ακυρωμένα
             if erp_lines["Status"].str.lower().isin(["canceled", "cancelled", "undelivered", "undeliverd"]).any():
                 statuses.append("cancel")
                 continue
 
-            # Rule 2: Handling Status ακυρωμένα
             if erp_lines["Handling Status"].str.lower().isin(["canceled", "cancelled"]).any():
                 statuses.append("cancel")
                 continue
 
-            # Rule 3: Πελάτης Kalikatzarakis
             if erp_lines["Customer"].astype(str).str.lower().str.contains("kalikatzarakis").any():
                 statuses.append("cancel")
                 continue
 
-            # Rule 4: Courier State
             courier_state = str(erp_lines["Courier State Friendly"].iloc[0]).strip().lower()
             if courier_state in ["returned to shipper", "canceled", "lost"]:
                 statuses.append("cancel")
@@ -73,7 +75,6 @@ if erp_file and linkwise_file:
                 statuses.append("valid")
                 continue
 
-            # Rule 5: Αν έχει Handling = checked αλλά όχι ακύρωση
             if (
                 erp_lines["Handling Status"].str.lower().eq("checked").any()
                 and not erp_lines["Status"].str.lower().isin(["canceled", "cancelled", "undelivered", "undeliverd"]).any()
@@ -81,7 +82,6 @@ if erp_file and linkwise_file:
                 statuses.append("pending")
                 continue
 
-            # Rule 6: Έλεγχος ποσών
             valid_lines = erp_lines[~erp_lines["Order Lines/Product/Name"].str.lower().str.contains("courier", na=False)]
 
             line_values = []
@@ -110,10 +110,8 @@ if erp_file and linkwise_file:
                 else:
                     statuses.append(f"valid - σωστό ποσό: {erp_total:.2f}€")
 
-        # Επισύναψη status
         linkwise_df["Status"] = statuses
 
-        # Αποθήκευση αποτελέσματος
         output_filename = "TFP_Linkwise_Validated.xlsx"
         linkwise_df.to_excel(output_filename, index=False)
 
