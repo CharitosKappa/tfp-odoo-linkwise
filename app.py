@@ -3,140 +3,127 @@ import pandas as pd
 import json
 import io
 
-st.set_page_config(page_title="TFP x Linkwise – Order Validator", layout="wide")
-st.title("🧾 TFP x Linkwise – Order Validator")
+st.set_page_config(page_title="Odoo x Linkwise Validator", layout="centered")
+
+st.title("📦 Odoo x Linkwise - Order Validator")
 
 st.markdown(
-    "✔️ Συμπλήρωση status για αρχεία Linkwise\n\n"
-    "📌 Χρησιμοποιούνται τα πεδία `Handling Status` και `Courier State`\n"
+    "✅ Ανέβασε τα 2 αρχεία (ERP πωλήσεων + Linkwise παραγγελιών) για να παραχθεί το απαντητικό αρχείο με status:"
 )
 
-erp_file = st.file_uploader("Upload ERP αρχείο (Sales Order)", type=["xlsx"])
-linkwise_file = st.file_uploader("Upload Linkwise αρχείο", type=["xlsx"])
+erp_file = st.file_uploader("🔹 Upload ERP αρχείο (Sales Order)", type=["xlsx"])
+linkwise_file = st.file_uploader("🔹 Upload Linkwise αρχείο", type=["xlsx"])
 
 if erp_file and linkwise_file:
     try:
-        erp_df_raw = pd.read_excel(erp_file)
+        # --- Διαβάζουμε τα αρχεία ---
+        erp_df = pd.read_excel(erp_file)
         linkwise_df = pd.read_excel(linkwise_file)
 
-        # Προεπεξεργασία ERP
-        erp_df = erp_df_raw.copy()
-        erp_df[["Shopify Order Id", "Customer", "Handling Status"]] = erp_df[
-            ["Shopify Order Id", "Customer", "Handling Status"]
+        # --- Συμπλήρωση κενών Shopify Order Id / Customer / Status / Handling Status ---
+        erp_df[["Shopify Order Id", "Customer", "Status", "Handling Status"]] = erp_df[
+            ["Shopify Order Id", "Customer", "Status", "Handling Status"]
         ].ffill()
 
-        erp_df["Shopify Order Id"] = erp_df["Shopify Order Id"].astype(str).str.strip()
-        linkwise_df["Advertiser Id"] = linkwise_df["Advertiser Id"].astype(str).str.strip()
-        linkwise_df["Amount"] = pd.to_numeric(linkwise_df["Amount"], errors="coerce").fillna(0)
-
-        grouped_erp = erp_df.groupby("Shopify Order Id")
-        available_order_ids = grouped_erp.groups.keys()
+        # --- Δημιουργία πίνακα με unique ERP orders ---
+        erp_orders = erp_df.groupby("Shopify Order Id")
 
         status_results = []
 
-        for _, row in linkwise_df.iterrows():
-            advertiser_id = row["Advertiser Id"]
-            amount = row["Amount"]
+        for idx, row in linkwise_df.iterrows():
+            advertiser_id = str(row.get("Advertiser Id")).strip()
+            amount = row.get("Amount", 0)
 
-            if advertiser_id not in available_order_ids:
+            if advertiser_id not in erp_df["Shopify Order Id"].astype(str).str.strip().values:
                 status_results.append("unmatched")
                 continue
 
-            order_lines = grouped_erp.get_group(advertiser_id)
-            handling_statuses = (
-                order_lines["Handling Status"].dropna().astype(str).str.lower().unique()
-            )
-            courier_states_raw = (
-                order_lines["Courier State"].dropna().astype(str).tolist()
-            )
+            erp_order_lines = erp_df[erp_df["Shopify Order Id"].astype(str).str.strip() == advertiser_id]
 
-            # -------- Κανόνας 1: Handling Status ακύρωσης
-            if any(s in ["canceled", "cancelled"] for s in handling_statuses):
-                status_results.append("cancel")
-                continue
+            # Κανόνες
+            status_erp = str(erp_order_lines["Status"].iloc[0]).strip().lower()
+            handling_status = str(erp_order_lines["Handling Status"].iloc[0]).strip().lower()
+            customer = str(erp_order_lines["Customer"].iloc[0]).strip().lower()
 
-            # -------- Κανόνας 2: Courier State με προτεραιότητα
+            # Courier state parsing
+            courier_raw = erp_order_lines["Courier State"].dropna().values
             courier_status = None
-
-            for raw in courier_states_raw:
+            if len(courier_raw) > 0:
                 try:
-                    parsed = json.loads(raw)
-                    state = parsed["courier_vouchers"][0]["state_friendly"]
-                    if state in ["Returned To Shipper", "Canceled", "Lost"]:
-                        courier_status = "cancel"
-                        break
-                    elif state == "Delivered":
-                        courier_status = "valid"
-                except:
-                    continue
+                    first_json = json.loads(courier_raw[0])
+                    courier_status = (
+                        first_json.get("courier_vouchers", [{}])[0].get("state_friendly", None)
+                    )
+                except Exception:
+                    pass
 
-            if courier_status == "cancel":
+            # --- Rule 1: Courier State based ---
+            if courier_status in ["Returned To Shipper", "Canceled", "Lost"]:
                 status_results.append("cancel")
                 continue
-            elif courier_status == "valid":
+            if courier_status == "Delivered":
                 status_results.append("valid")
                 continue
 
-            # -------- Κανόνας 3: Handling Status = checked
-            if "checked" in handling_statuses:
+            # --- Rule 2: Handling Status ---
+            if handling_status in ["cancelled", "canceled"]:
+                status_results.append("cancel")
+                continue
+
+            # --- Rule 3: Customer is Kalikatzarakis ---
+            if "kalikatzarakis" in customer.lower():
+                status_results.append("cancel")
+                continue
+
+            # --- Rule 4: Pending if checked (handling) but not canceled status ---
+            if handling_status == "checked" and status_erp not in [
+                "canceled",
+                "cancelled",
+                "undelivered",
+                "undeliverd",
+            ]:
                 status_results.append("pending")
                 continue
 
-            # -------- Κανόνας 4: Έλεγχος ποσού
-            product_lines = order_lines[
-                ~order_lines["Order Lines/Product/Name"]
-                .astype(str)
-                .str.contains("courier", case=False, na=False)
+            # --- Rule 5: Amount Check ---
+            erp_lines = erp_order_lines[
+                ~erp_order_lines["Order Lines/Product/Name"].str.contains("courier", case=False, na=False)
             ]
 
-            erp_total = 0.0
-            for _, line in product_lines.iterrows():
-                try:
-                    qty = pd.to_numeric(line.get("Order Lines/Product/Quantity", 0), errors="coerce")
-                    delivered = pd.to_numeric(line.get("Order Lines/Delivery Quantity", 0), errors="coerce")
-                    untaxed = pd.to_numeric(line.get("Order Lines/Untaxed Invoiced Amount", 0), errors="coerce")
+            # Ensure numeric
+            erp_lines["Untaxed"] = pd.to_numeric(
+                erp_lines["Order Lines/Untaxed Invoiced Amount"], errors="coerce"
+            )
+            erp_lines["Qty"] = pd.to_numeric(
+                erp_lines["Order Lines/Delivery Quantity"], errors="coerce"
+            )
 
-                    if pd.isna(qty) or pd.isna(delivered) or pd.isna(untaxed):
-                        continue
-                    if qty == 0:
-                        continue
+            line_values = erp_lines["Untaxed"] * erp_lines["Qty"]
+            erp_total = round(line_values.sum(), 2)
 
-                    if qty == delivered:
-                        line_value = untaxed
-                    else:
-                        unit_price = untaxed / qty
-                        line_value = unit_price * delivered
+            # Έλεγχος αν amount δεν είναι αριθμός
+            try:
+                amount = float(amount)
+            except:
+                amount = 0.0
 
-                    erp_total += line_value
-                except:
-                    continue
-
-            erp_total = round(erp_total, 2)
-            diff = abs(erp_total - amount)
-
-            if diff <= 0.01:
+            if abs(erp_total - amount) <= 0.01:
                 status_results.append("cancel")
-            elif amount != 0:
-                rel_diff = diff / amount
-                if rel_diff <= 0.01:
-                    status_results.append("valid")
-                else:
-                    status_results.append(f"valid - σωστό ποσό: {erp_total:.2f}€")
-            else:
+            elif amount > 0 and abs(erp_total - amount) / amount <= 0.01:
                 status_results.append("valid")
+            else:
+                status_results.append(f"valid - σωστό ποσό: {erp_total:.2f}€")
 
         linkwise_df["Status"] = status_results
 
+        # --- Εξαγωγή αποτελέσματος ---
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            linkwise_df.to_excel(writer, index=False, sheet_name="Validated")
+            linkwise_df.to_excel(writer, index=False)
+        output.seek(0)
 
         st.success("✅ Ολοκληρώθηκε η επεξεργασία.")
-        st.download_button(
-            "📥 Κατέβασε το αρχείο",
-            data=output.getvalue(),
-            file_name="TFP_Linkwise_Validated.xlsx",
-        )
+        st.download_button("📥 Κατέβασε το αρχείο αποτελεσμάτων", output, file_name="TFP_Linkwise_Validated.xlsx")
 
     except Exception as e:
         st.error(f"❌ Σφάλμα κατά την επεξεργασία: {e}")
