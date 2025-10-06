@@ -19,18 +19,27 @@ if erp_file and linkwise_file:
         erp_df_raw = pd.read_excel(erp_file)
         linkwise_df = pd.read_excel(linkwise_file)
 
+        # Προεπεξεργασία ERP
         erp_df = erp_df_raw.copy()
-        erp_df[["Shopify Order Id", "Customer", "Handling Status"]] = erp_df[["Shopify Order Id", "Customer", "Handling Status"]].ffill()
+        erp_df[["Shopify Order Id", "Customer", "Handling Status"]] = erp_df[
+            ["Shopify Order Id", "Customer", "Handling Status"]
+        ].ffill()
 
+        # Βεβαιότητα ότι είναι strings και χωρίς κενά
+        erp_df["Shopify Order Id"] = erp_df["Shopify Order Id"].astype(str).str.strip()
+        linkwise_df["Advertiser Id"] = linkwise_df["Advertiser Id"].astype(str).str.strip()
+
+        # Ομαδοποίηση παραγγελιών ERP
         grouped_erp = erp_df.groupby("Shopify Order Id")
+        available_order_ids = grouped_erp.groups.keys()
 
         status_results = []
 
         for _, row in linkwise_df.iterrows():
-            advertiser_id = str(row.get("Advertiser Id")).strip()
+            advertiser_id = row["Advertiser Id"]
             amount = float(row.get("Amount", 0))
 
-            if advertiser_id not in grouped_erp.groups:
+            if advertiser_id not in available_order_ids:
                 status_results.append("unmatched")
                 continue
 
@@ -44,24 +53,24 @@ if erp_file and linkwise_file:
                 continue
 
             # -------- Κανόνας 2: Courier State με προτεραιότητα
-            state_priority = None  # None / cancel / valid / pending
+            courier_status = None  # valid / cancel / pending
 
             for c_raw in courier_states_raw:
                 try:
                     parsed = json.loads(c_raw)
                     state = parsed["courier_vouchers"][0]["state_friendly"]
                     if state in ["Returned To Shipper", "Canceled", "Lost"]:
-                        state_priority = "cancel"
-                        break  # προτεραιότητα σε cancel
+                        courier_status = "cancel"
+                        break
                     elif state == "Delivered":
-                        state_priority = "valid"  # αν δεν βρούμε cancel, τουλάχιστον valid
+                        courier_status = "valid"
                 except:
                     continue
 
-            if state_priority == "cancel":
+            if courier_status == "cancel":
                 status_results.append("cancel")
                 continue
-            elif state_priority == "valid":
+            elif courier_status == "valid":
                 status_results.append("valid")
                 continue
 
@@ -71,7 +80,11 @@ if erp_file and linkwise_file:
                 continue
 
             # -------- Κανόνας 4: Έλεγχος ποσού
-            product_lines = order_lines[~order_lines["Order Lines/Product/Name"].astype(str).str.contains("courier", case=False)]
+            product_lines = order_lines[
+                ~order_lines["Order Lines/Product/Name"]
+                .astype(str)
+                .str.contains("courier", case=False)
+            ]
 
             total = 0.0
             for _, line in product_lines.iterrows():
