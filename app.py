@@ -26,7 +26,7 @@ if erp_file and linkwise_file:
     # Fill down to normalize ERP data
     erp_df[['Shopify Order Id', 'Customer', 'Handling Status', 'Status']] = erp_df[
         ['Shopify Order Id', 'Customer', 'Handling Status', 'Status']
-    ].fillna(method='ffill')
+    ].ffill()
 
     # Remove courier rows
     erp_df = erp_df[~erp_df['Order Lines/Product/Name'].str.lower().str.contains("courier", na=False)]
